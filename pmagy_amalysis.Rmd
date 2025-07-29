@@ -1,0 +1,81 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+library(tidyverse)
+```
+
+
+```{r}
+
+
+colnames(PMAGY_Monitorable_Indicators_under_each_domain)=PMAGY_Monitorable_Indicators_under_each_domain[1,]
+PMAGY_Monitorable_Indicators_under_each_domain=PMAGY_Monitorable_Indicators_under_each_domain[-1,]
+
+
+```
+
+
+```{r}
+Beneficiaries.Data <- read.csv("~/Downloads/Beneficiaries Data.csv")
+Beneficiaries.Data[Beneficiaries.Data$Saturated.Beneficiary == "NULL",12]=0
+
+Beneficiaries.Data=Beneficiaries.Data %>%
+  merge(PMAGY_Monitorable_Indicators_under_each_domain%>%type.convert(as.is=T)%>%select(2,3,4,5,6),by.x ="Monitorable.Indicator.1" ,by.y ="Monitorable Indicator ID" ,all.x = TRUE)
+
+```
+
+```{r}
+Village.Works.Data=Village.Works.Data %>%
+  merge(PMAGY_Monitorable_Indicators_under_each_domain%>%type.convert(as.is=T)%>%select(2,3,4,6),by.x ="Monitorable.Indicator.1" ,by.y ="Monitorable Indicator ID" ,all.x = TRUE)
+
+colnames(Village.Works.Data)
+
+Village.Works.Data[Village.Works.Data$No..of.works.in.progress.excluding.completed=="NULL",12]=0
+Village.Works.Data[Village.Works.Data$No..of.works.completed=="NULL",13]=0
+
+Village.Works.Data$No..of.works.in.progress.excluding.completed=as.numeric(Village.Works.Data$No..of.works.in.progress.excluding.completed)
+Village.Works.Data$No..of.works.completed=as.numeric(Village.Works.Data$No..of.works.completed)
+```
+
+
+```{r}
+Beneficiaries.Data%>%type.convert(as.is=T)%>%
+  group_by(`Domain and Name`,Monitorable.Indicator)%>%
+  summarise(total_beneficiaries_identified=sum(Beneficiaries.identified),
+            total_beneficiaries_saturated=sum(Saturated.Beneficiary),
+            prop_saturation=(total_beneficiaries_saturated*100)/total_beneficiaries_identified)
+
+
+
+Beneficiaries.Data%>%type.convert(as.is=T)%>%
+  group_by(state.Name,District.Name)%>%count()%>%group_by(state.Name)%>%count()
+  summarise(total_beneficiaries_identified=sum(Beneficiaries.identified),
+            total_beneficiaries_saturated=sum(Saturated.Beneficiary))
+
+
+```
+
+```{r}
+Village.Works.Data%>%
+  group_by(`Domain and Name`,Monitorable.Indicator)%>%
+  summarise(total_prjects_identifed=sum(No..of.works.identified.for.execution),
+            total_prjects_inprogress=sum(No..of.works.in.progress.excluding.completed),
+            total_projects_completed=sum(No..of.works.completed),
+            prop_projects_completed=(total_projects_completed*100)/total_prjects_identifed,
+            prop_projects_inprogress=(total_prjects_inprogress*100)/total_prjects_identifed,
+            total_prjects_notstarted=(100 - (prop_projects_completed+prop_projects_inprogress)))
+
+Village.Works.Data%>%
+  group_by(State.Name,`Domain and Name`)%>%
+  summarise(total_prjects_identifed=sum(No..of.works.identified.for.execution),
+            total_prjects_inprogress=sum(No..of.works.in.progress.excluding.completed),
+            total_projects_completed=sum(No..of.works.completed))
+```
+

@@ -1,0 +1,56 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+ 
+
+```{r}
+ma_antyodaya_livelihood %>%
+  group_by(is_pmagy) %>%
+  summarise(
+    `Avergae Percentage of MNERGA JOb Card Holder provided employment` = mean(
+      no_of_persons_provided_employment_under_mgnrega * 100 / no_of_persons_currently_are_job_card_holders_under_mgnrega,
+      na.rm = TRUE
+    ),
+    `Avergae Percent Expenditure of Approved Labour Budget under NRM` =
+      mean(
+        total_expenditure_approved_under_nrm_labour_budget_during_yr * 100 / total_approved_labour_budget_for_year,
+        na.rm = TRUE
+      ),
+    `Average percentage of HH mobilized in SHG` = mean(total_hhd_mobilized_into_shg *
+                                                         100 / total_hhd, na.rm = TRUE),
+    `Average Percentage of SHG accessed bank loans` = mean(
+      total_shg_accessed_bank_loans * 100 / (
+        no_of_shgs_under_nrlm + no_of_shgs_under_nabard_pmksy_or_any_other_state_scheme
+      ),
+      na.rm = TRUE
+    ),
+    `Average percentage of Households engaged in Handloom` =
+      mean(no_of_hhd_engaged_in_handloom * 100 / total_hhd, na.rm = TRUE),
+    `Average percentage of Households engaged in Handicraft` =
+      mean(no_of_hhd_engaged_in_handicrafts * 100 / total_hhd, na.rm = TRUE),
+    `Average percentage of Households engaged in cottage and small scale unit` =
+      mean(total_hhd_engaged_cottage_small_scale_units * 100 / total_hhd, na.rm = TRUE),
+  )
+```
+
+```{r}
+ma_antyodaya_livelihood %>%
+  mutate(
+    prop_mnerga_job_card = if_else(
+      no_of_persons_currently_are_job_card_holders_under_mgnrega == 0, 0,
+      no_of_persons_provided_employment_under_mgnrega * 100 / no_of_persons_currently_are_job_card_holders_under_mgnrega
+    ),
+    prop_exp_nrm_labour_budget= if_else(total_approved_labour_budget_for_year==0,0,total_expenditure_approved_under_nrm_labour_budget_during_yr * 100 / total_approved_labour_budget_for_year),
+    prop_hh_mobilized_shg= if_else(total_hhd==0,0,total_hhd_mobilized_into_shg*100 / total_hhd),
+    prop_shg_bank_loan=if_else(no_of_shgs_under_nrlm + no_of_shgs_under_nabard_pmksy_or_any_other_state_scheme)==0,0,total_shg_accessed_bank_loans * 100 / (
+        no_of_shgs_under_nrlm + no_of_shgs_under_nabard_pmksy_or_any_other_state_scheme),
+    prop_handloom=if_else(total_hhd==0,0,no_of_hhd_engaged_in_handloom * 100 / total_hhd),
+    prop_handicraft=if_else(total_hhd==0,0,no_of_hhd_engaged_in_handicrafts * 100 / total_hhd),
+    prop_cottage_smallscale=if_else(total_hhd==0,0,total_hhd_engaged_cottage_small_scale_units * 100 / total_hhd))
+```
+
+```{r}
+
+```
+

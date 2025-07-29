@@ -1,0 +1,53 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+```{r}
+library(tidyverse)
+library(pollster)
+```
+
+
+```{r}
+ma_antyodaya_fin_inclusion %>%
+  mutate(weight_d=1)%>%
+  crosstab(x=is_pmagy,y=availability_of_csc_in_village,weight = weight_d,unwt_n = TRUE)
+
+ma_antyodaya_fin_inclusion %>%
+  mutate(weight_d=1)%>%
+  crosstab(x=is_pmagy,y=is_post_office_available,weight = weight_d,unwt_n = TRUE)
+
+ma_antyodaya_fin_inclusion %>%
+  mutate(weight_d=1)%>%
+  crosstab(x=is_pmagy,y=is_bank_available,weight = weight_d,unwt_n = TRUE)
+
+ma_antyodaya_fin_inclusion %>%
+  mutate(weight_d=1)%>%
+  crosstab(x=is_pmagy,y=is_atm_available,weight = weight_d,unwt_n = TRUE)
+
+```
+
+```{r}
+ma_antyodaya_fin_inclusion %>%
+  mutate(weight_d=1)%>%
+  crosstab_3way(x=state_name,z=is_pmagy,y=availability_of_csc_in_village,weight = weight_d,unwt_n = TRUE)%>%select(1,2,5)%>%spread(key = "is_pmagy", value = "3")
+
+ma_antyodaya_fin_inclusion %>%
+  mutate(weight_d=1)%>%
+  crosstab_3way(x=state_name,z=is_pmagy,y=is_bank_available,weight = weight_d,unwt_n = TRUE)%>%select(1,2,4)%>%spread(key = "is_pmagy", value = "2")
+
+ma_antyodaya_fin_inclusion %>%
+  mutate(weight_d=1)%>%
+  crosstab_3way(x=state_name,z=is_pmagy,y=is_post_office_available,weight = weight_d,unwt_n = TRUE)%>%select(1,2,4)%>%spread(key = "is_pmagy", value = "2")
+
+ma_antyodaya_fin_inclusion %>%
+  mutate(weight_d=1)%>%
+  crosstab_3way(x=state_name,z=is_pmagy,y=is_atm_available,weight = weight_d,unwt_n = TRUE)%>%select(1,2,4)%>%spread(key = "is_pmagy", value = "2")
+```
+
+
+```{r}
+```
+
