@@ -1,0 +1,130 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+library(arrow)
+library(tidyverse)
+library(readr)
+library(sf)
+```
+
+```{r}
+ma_village_list=read_csv(file = "MA_2022_06122023.csv",col_select = c(1:17,244:249))
+```
+
+```{r}
+sf_points <- st_as_sf(ma_village_list,
+                      coords = c("village_longitude","village_latitude"),
+                      crs = 4326,
+                      na.fail = FALSE)
+
+st_write(sf_points, "ma_village_list.gpkg", append = FALSE)
+```
+
+```{r}
+#List of Unique adarsh gram
+unique_ag_village=ma_village_list %>% filter(is_pmagy==TRUE)%>%group_by(state_code,district_code,block_code,village_code)%>% count()
+
+#List of unqiue Adarsh Grams with single antry in Mission Antyodaya Data
+unique_clean_ag=unique_ag_village %>%filter(n==1)
+```
+
+
+```{r}
+ma_health_indicator=read_csv(file = "MA_2022_06122023.csv",col_select = c(1:17,185:198,201:218,244:249))
+
+ma_ag_health_indicator=ma_health_indicator %>% filter(village_code %in% unique_clean_ag$village_code)
+
+write.csv(ma_ag_health_indicator,"ma_ag_health_indicator.csv",row.names = TRUE)
+```
+
+```{r}
+ma_ag_health_indicator %>%
+  mutate(total_child=total_childs_aged_0_to_3_years+total_childs_aged_3_to_6_years,
+         total_chil_reg_aanganwadi=total_childs_aged_0_to_3_years_reg_under_aanganwadi+total_childs_aged_3_to_6_years_reg_under_aanganwadi,
+         percent_child_reg_anaganwadi=if_else(total_child==0,0,total_chil_reg_aanganwadi/total_child))%>%
+  group_by(state_name)%>%
+  summarise(avg_percentage=mean(percent_child_reg_anaganwadi,na.rm=TRUE))
+
+ma_ag_health_indicator %>%
+  group_by(state_name)%>%
+  summarise(total_child=sum(total_childs_aged_0_to_3_years+total_childs_aged_3_to_6_years,na.rm = TRUE),
+         total_chil_reg_aanganwadi=sum(total_childs_aged_0_to_3_years_reg_under_aanganwadi+total_childs_aged_3_to_6_years_reg_under_aanganwadi,na.rm = TRUE))%>%
+         mutate(percent_child_reg_anaganwadi=total_chil_reg_aanganwadi*100/total_child)
+
+ma_ag_health_indicator %>%
+  mutate(
+    total_child = total_childs_aged_0_to_3_years + total_childs_aged_3_to_6_years,
+    total_chil_reg_aanganwadi = total_childs_aged_0_to_3_years_reg_under_aanganwadi +
+      total_childs_aged_3_to_6_years_reg_under_aanganwadi,
+    percent_child_reg_anaganwadi = if_else(total_child == 0, 0, total_chil_reg_aanganwadi *
+                                             100 / total_child),
+    percent_child_immunised = if_else(total_child == 0, 0, total_no_of_children_0_to_6_years_immunized_under_icds *
+                                        100 / total_child),
+    percent_Pregnant_women_icds = if_else(total_no_of_pregnant_women == 0, NA, total_no_of_pregnant_women_receiving_services_under_icds *
+                                        100 / total_no_of_pregnant_women),
+    rank_village_annaganwadi = cut(percent_child_reg_anaganwadi, breaks = 10),
+    rank_village_immunisation = cut(percent_child_immunised, breaks = 10),
+    rank_village_icsd_pregnant = cut(percent_pregnant_woman_icds, breaks = 10),
+  ) %>%
+  group_by(rank_village_icsd_pregnant) %>%
+  count()
+```
+
+
+
+```{r}
+write_parquet(MA_2022_06122023,"MA_2022_06122023.parquet")
+
+MA_2022_06122023=read_parquet("MA_2022_06122023.parquet")
+```
+
+```{r}
+col_names=read.csv(file = "MA_2022_06122023.csv",nrows = 1)
+colnames(col_names)
+
+ma_antyodaya_health=read_csv("MA_2022_06122023.csv",col_select = c(1:17,174:219,244:249))
+
+ma_antyodaya_livelihood=read_csv("MA_2022_06122023.csv",col_select = c(1:17,223:249))
+
+ma_antyodaya_fin_inclusion=read_csv("MA_2022_06122023.csv",col_select = c(1:17,121:130,244:249))
+```
+
+```{r}
+MA_Livelihood %>%
+filter(is_pmagy==1)%>%
+  group_by(state_code,state_name,availability_of_sub_center)%>%
+  count()%>%
+  mutate(availability_of_sub_center=case_when(availability_of_sub_center==1~"Sub Centre Available",
+                                              availability_of_sub_center==2~"Sub Centre Not Available"))%>%
+  spread(key = "availability_of_sub_center",value = n)%>%
+  rename("No Data"="<NA>")
+
+MA_Livelihood %>%
+filter(is_pmagy==1)%>%
+  group_by(state_code,state_name,avai)%>%
+  count()%>%
+  mutate(availability_of_sub_center=case_when(availability_of_sub_center==1~"Sub Centre Available",
+                                              availability_of_sub_center==2~"Sub Centre Not Available"))%>%
+  spread(key = "availability_of_sub_center",value = n)%>%
+  rename("No Data"="<NA>")
+
+gp_adarsh_gram=MA_Livelihood %>%
+  mutate(is_pmagy=case_when(is_pmagy=="TRUE"~1,
+                            is_pmagy=="FALSE"~0))%>%
+  group_by(state_code,state_name,district_code,district_name,block_code,block_name,gp_code,gp_name,is_pmagy)%>%
+  summarise(gp_pmagy=sum(is_pmagy))
+  
+```
+
+
+```{r}
+read_parquet()
+```
+
