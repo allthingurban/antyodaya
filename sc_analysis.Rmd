@@ -1,0 +1,156 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+
+```{r}
+library(arrow)
+library(tidyverse)
+```
+
+
+```{r}
+#Load all the data
+pca_2011=read_parquet("/media/abhinav/Data/RStudioProject/census2011/pca_2011.parquet")
+
+#Load data of all villages
+allVillagesofIndiaCategory2024=read_parquet("/media/abhinav/Data/RStudioProject/lgd/allVillagesofIndia2024.parquet")
+
+#Identify census towns from PCA
+list_ct=pca_2011[grepl("\\(CT\\)", pca_2011$Name), ]
+list_ct=list_ct %>% filter(list_ct$Level=="TOWN")%>% group_by(Town.Village) %>%count()
+
+#Identify all outgrowths from PCA
+outgrowth_villages=pca_2011[grepl("\\(OG\\)", pca_2011$Name), ]
+outgrowth_villages$rural_mdds_code=as.numeric(sub(".*\\(Rural MDDS CODE:([0-9]+)\\).*", "\\1", outgrowth_villages$Name))
+
+#Filter all the villages
+pca_2011_rural= pca_2011 %>% filter(Level=="VILLAGE")
+
+#List of all new villages
+new_villages=allVillagesofIndiaCategory2024 %>% filter(`Census 2011 Code`==0)
+```
+
+#Categorise villages based on proportion of SC Population
+#Total number of villages as identified in Census 2011: 640959
+#Total number of villages without any population: 43331
+#Total number of villages with some population: 597628
+#Total Number of villages with some population but zero SC population: 145951
+#Total number of villages with some population and also have some SC:442675
+
+```{r}
+
+#Filer out all the villages and census towns
+villages_2011=pca_2011 %>% filter(Level=="VILLAGE" | (Town.Village %in% list_ct$Town.Village & Level=="TOWN"))
+
+#Chnage the village code for outgrowth
+outgrowth_villages=outgrowth_villages %>%
+  filter(!is.na(rural_mdds_code))%>%
+  mutate(Town.Village =rural_mdds_code) %>% 
+  select(1:94)
+
+#Combine the outgrowth village and rural village
+villages_2011=rbind(villages_2011,outgrowth_villages)
+
+
+#Remove duplicates by asummarising the data
+villages_2011=villages_2011%>% 
+  select(1,2,4,10,11,17)%>%
+  group_by(State,Town.Village)%>% 
+  summarise(TOT_P=sum(TOT_P),
+            No_HH=sum(No_HH),
+            P_SC=sum(P_SC))
+
+#Add columns for SC population and percentage and proportion of SC
+villages_2011=villages_2011 %>%
+  mutate(prop_sc=P_SC*100/TOT_P,
+         cat_prop_sc=case_when(TOT_P==0 ~"No population",
+                               P_SC==0 ~"No SC population",
+                               TOT_P>0 & prop_sc>0 & prop_sc<25~"0-25",
+                               TOT_P>0 & prop_sc>=25 & prop_sc<50~"25-50",
+                               TOT_P>0 & prop_sc>=50 & prop_sc<75~"50-75",
+                               TOT_P>0 & prop_sc>=75~">75"),
+         cat_pop_sc=case_when(TOT_P==0 ~"No population",
+                              P_SC==0 ~"No SC population",
+                              TOT_P>0 & P_SC>0 & P_SC<100~"0-100", 
+                              TOT_P>0 & P_SC>=100 & P_SC<250~"100-250",
+                              TOT_P>0 & P_SC>=250 & P_SC<500~"250-500",
+                              TOT_P>0 & P_SC>=500 & P_SC<1000~"500-1000",
+                              TOT_P>0 & P_SC>=1000~">1000"),
+         village_yn=if_else(Town.Village %in% pca_2011_rural$Town.Village,1,0),
+         ct_yn=if_else(Town.Village %in% list_ct$Town.Village,1,0),
+         outgrowth_yn=if_else(Town.Village %in% outgrowth_villages$Town.Village,1,0))
+
+
+```
+
+#Number of village with one entry in mission antyodaya data: 612343
+#Number of villages with more than 1 entry in Mission Antyodaya data: 12071
+
+#Number of unmatched villages: 9648
+#Out of the unmacthed villages, number of villages that are formed after census 2011: 8943 (Out of 23848 Villages)
+#After considering the new villages, number of unmatched villages which are present in LGD but not in PCA data=121
+#After considering the new villages, number of unmatched villages=584
+
+
+
+```{r}
+#identify the list of unique entries in MA data
+unique_ma_village=ma_village_list %>% group_by(village_code)%>%count()%>%filter(n==1)
+#Identify the list of duplicate entries in MA
+duplicate_ma_village=ma_village_list %>% group_by(village_code)%>%count()%>%filter(n>1)
+
+#COmbine the unique and duplicate entries to find the list of uniqe village in MA
+ma_village=rbind(unique_ma_village,duplicate_ma_village)
+
+#Merge the MA data with Census 2011 Data
+ma_village=ma_village %>% merge(villages_2011,by.x ="village_code" ,by.y = "Town.Village",all.x = TRUE)
+
+#Add a marker for villages that matches data with census and those without data
+ma_village=ma_village %>% mutate(village_status=case_when(is.na(TOT_P)~"Not Matched",
+                                               !is.na(TOT_P)~"Census 2011"))
+
+#Find the list of unmatched vilages
+unmatched_village=ma_village %>% merge(villages_2011,by.x ="village_code" ,by.y = "Town.Village",all.x = TRUE)%>% filter(is.na(TOT_P))
+
+#Add columns for marking the reason for unmatch
+unmatched_village=unmatched_village %>% mutate(unmatched_reason=case_when(village_code %in% new_villages$`Village Code`~"New Village"))
+
+unmatched_village %>% filter(!is.na(unmatched_reason))
+
+unmatched_village %>% filter(is.na(unmatched_reason) & village_code %in% allVillagesofIndiaCategory2024$`Village Code`)
+
+
+```
+
+
+```{r}
+#Summarise the MA data for all unique villages
+ma_village_list_unique=ma_village_list %>% group_by(village_code)%>%
+  summarise(total_population=sum(total_population),
+            total_hhd=sum(total_hhd),
+            village_latitude=mean(village_latitude),
+            village_longitude=mean(village_longitude),
+            is_pmagy=mean(is_pmagy),
+            is_AD=mean(is_AD),
+            is_AB=mean(is_AB))
+
+```
+
+
+```{r}
+ma_village_list_unique=ma_village_list_unique %>% merge(ma_village %>% select(1,4:13),by = "village_code",all.x = TRUE,suffixes = "census")
+
+```
+
+```{r}
+ma_village_list_unique %>% mutate(pop_chnage=total_population - TOT_P,hh_chnage=total_hhd - No_HH)%>% filter(hh_chnage<0)
+```
+
+
+```{r}
+write_parquet(ma_village_list_unique, ,sink="ma_village_list_unique.parquet")
+```
+
